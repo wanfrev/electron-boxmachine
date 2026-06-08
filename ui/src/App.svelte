@@ -158,20 +158,22 @@
     const key = e.key.toLowerCase();
 
     if (key === 'c' || key === 'm') {
-      try { window.electronAPI.sendCoin(); } catch (x) {}
+      fetch('/api/coin', { method: 'POST' });
       return;
     }
 
     if (key === ' ') {
       e.preventDefault();
-      try {
-        if (st === 'waiting' && cr > 0) {
-          window.electronAPI.sendPunchReady();
-        } else if (st === 'ready') {
-          const fakeScore = Math.floor(Math.random() * 700) + 300;
-          window.electronAPI.sendPunch(fakeScore);
-        }
-      } catch (x) {}
+      if (st === 'waiting' && cr > 0) {
+        fetch('/api/pera-abajo', { method: 'POST' });
+      } else if (st === 'ready') {
+        const fakeScore = Math.floor(Math.random() * 700) + 300;
+        fetch('/api/punch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ score: fakeScore }),
+        });
+      }
       return;
     }
   }
@@ -194,25 +196,25 @@
     applyState(newState, 'ipc');
   }
 
-  let unsyncState = null;
-
-  $: if (typeof window !== 'undefined' && !window.electronAPI) {
-    window.electronAPI = {
-      sendCoin: () => console.log('[MOCK] coin-input'),
-      sendPunchReady: () => console.log('[MOCK] punch-ready'),
-      sendPunch: (s) => console.log('[MOCK] punch-simulated', s),
-      getState: () => Promise.resolve({ state: 'waiting', credits: 0, records: rec }),
-      onStateUpdate: () => () => {},
-    };
-  }
+  let eventSource = null;
 
   onMount(async () => {
     window.addEventListener('keydown', handleKey);
 
-    unsyncState = window.electronAPI.onStateUpdate(cambiar_estado);
+    eventSource = new EventSource('/api/events');
+    eventSource.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        cambiar_estado(data);
+      } catch (x) {}
+    };
+    eventSource.onopen = () => {
+      backendConnected = true;
+    };
 
     try {
-      const state = await window.electronAPI.getState();
+      const res = await fetch('/api/state');
+      const state = await res.json();
       if (state) {
         backendConnected = true;
         cr = state.credits;
@@ -226,7 +228,7 @@
 
   onDestroy(() => {
     window.removeEventListener('keydown', handleKey);
-    if (unsyncState) unsyncState();
+    if (eventSource) eventSource.close();
   });
 
   $: animatingScore = $animatedScore;

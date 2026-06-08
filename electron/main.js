@@ -1,8 +1,6 @@
-const {
-  app, BrowserWindow, ipcMain
-} = require('electron');
-const path = require('path');
+const http = require('http');
 const fs = require('fs');
+const path = require('path');
 const {
   PIN_MONEDERO, PIN_SENSOR_ABAJO, PIN_SENSOR_ARRIBA,
   DEBOUNCE_COIN_MS, MAX_PUNCH_WINDOW_MS, MIN_PUNCH_DT_US,
@@ -13,11 +11,23 @@ const {
 } = require('./config');
 const { calcularPuntaje } = require('./scoring');
 
-const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
+const PORT = 8000;
+const DIST_DIR = path.join(__dirname, '..', 'ui', 'dist');
 
-if (process.platform === 'linux' && !isDev) {
-  app.commandLine.appendSwitch('no-sandbox');
-}
+const MIME_TYPES = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.ttf': 'font/ttf',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.txt': 'text/plain',
+};
 
 function log(msg, ...args) {
   const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
@@ -64,7 +74,7 @@ class HardwareInput {
           PIN_MONEDERO, PIN_SENSOR_ABAJO, PIN_SENSOR_ARRIBA);
     } catch (e) {
       this.gpio = null;
-      log('GPIO no disponible (%s). Usando IPC teclado.', e.message);
+      log('GPIO no disponible (%s). Usando solo API HTTP.', e.message);
     }
   }
 
@@ -176,12 +186,8 @@ class Game {
     this.records = [...DEFAULT_RECORDS];
     this.timers = new Set();
     this.hardware = null;
-    this.mainWindow = null;
+    this.sseClients = new Set();
     this._loadRecords();
-  }
-
-  setWindow(win) {
-    this.mainWindow = win;
   }
 
   start() {
@@ -218,10 +224,22 @@ class Game {
     if (this.hardware) this.hardware.handleKey(key);
   }
 
+  addSSEClient(res) {
+    this.sseClients.add(res);
+    res.on('close', () => this.sseClients.delete(res));
+  }
+
   _onHwEvent(eventType, kwargs) {
     if (eventType === 'coin') this._onCoin();
     else if (eventType === 'pera_abajo') this._onPeraAbajo();
     else if (eventType === 'punch') this._onPunch(kwargs.score || 0);
+    else if (eventType === 'quit') this._onQuit();
+  }
+
+  _onQuit() {
+    log('Evento quit recibido - cerrando...');
+    this.stop();
+    process.exit(0);
   }
 
   _onCoin() {
@@ -298,10 +316,10 @@ class Game {
   }
 
   _broadcastState() {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      try {
-        this.mainWindow.webContents.send('state-update', this._buildPayload());
-      } catch {}
+    const payload = this._buildPayload();
+    const data = `data: ${JSON.stringify(payload)}\n\n`;
+    for (const res of this.sseClients) {
+      try { res.write(data); } catch {}
     }
   }
 
@@ -354,72 +372,145 @@ class Game {
   }
 }
 
-let game = null;
-
-function createWindow() {
-  const mainWindow = new BrowserWindow({
-    fullscreen: true,
-    kiosk: !isDev,
-    autoHideMenuBar: true,
-    frame: isDev,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+function parseBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try { resolve(body ? JSON.parse(body) : {}); }
+      catch { resolve({}); }
+    });
   });
+}
 
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools({ mode: 'bottom' });
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'ui', 'dist', 'index.html'));
+function serveStatic(urlPath, res) {
+  const filePath = urlPath === '/' || urlPath === ''
+    ? path.join(DIST_DIR, 'index.html')
+    : path.join(DIST_DIR, urlPath);
+
+  const ext = path.extname(filePath);
+  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      const indexFile = path.join(DIST_DIR, 'index.html');
+      fs.readFile(indexFile, (err2, indexContent) => {
+        if (err2) {
+          res.writeHead(404);
+          res.end('Not found');
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(indexContent);
+      });
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(content);
+  });
+}
+
+const game = new Game();
+game.start();
+
+function handleAPIRoute(req, res) {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const pathname = url.pathname;
+
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return true;
   }
 
-  mainWindow.on('closed', () => {
-    game = null;
-  });
+  if (pathname === '/api/state' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(game.getState()));
+    return true;
+  }
 
-  return mainWindow;
+  if (pathname === '/api/coin' && req.method === 'POST') {
+    game.handleCoin();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(game.getState()));
+    return true;
+  }
+
+  if (pathname === '/api/pera-abajo' && req.method === 'POST') {
+    game.handlePunchReady();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(game.getState()));
+    return true;
+  }
+
+  if (pathname === '/api/punch' && req.method === 'POST') {
+    parseBody(req).then(body => {
+      const score = body.score || Math.floor(Math.random() * 700) + 300;
+      game.handleSimulatedPunch(score);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(game.getState()));
+    });
+    return true;
+  }
+
+  if (pathname === '/api/events' && req.method === 'GET') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.write(`data: ${JSON.stringify(game.getState())}\n\n`);
+    game.addSSEClient(res);
+    return true;
+  }
+
+  return false;
 }
 
-function setupIPC(win) {
-  ipcMain.on('coin-input', () => {
-    if (game) game.handleCoin();
-  });
-
-  ipcMain.on('punch-ready', () => {
-    if (game) game.handlePunchReady();
-  });
-
-  ipcMain.on('punch-simulated', (_event, score) => {
-    if (game) game.handleSimulatedPunch(score);
-  });
-
-  ipcMain.handle('get-state', () => {
-    return game ? game.getState() : null;
-  });
-
-  ipcMain.on('key-input', (_event, key) => {
-    if (game) game.handleKey(key);
+function keyboardLoop() {
+  if (!process.stdin.isTTY) return;
+  const readline = require('readline');
+  readline.emitKeypressEvents(process.stdin);
+  process.stdin.setRawMode(true);
+  process.stdin.on('keypress', (str, key) => {
+    if (!str) return;
+    const ch = str.toLowerCase();
+    if (ch === 'c' || ch === 'm') {
+      game.handleCoin();
+    } else if (ch === ' ') {
+      game.handleKey(' ');
+    } else if (ch === 'q') {
+      log('Tecla Q presionada - cerrando...');
+      game.stop();
+      process.exit(0);
+    }
   });
 }
 
-app.whenReady().then(() => {
-  log('K11 Boxing - Iniciando...');
-
-  game = new Game();
-  const win = createWindow();
-  game.setWindow(win);
-  setupIPC(win);
-  game.start();
+const server = http.createServer((req, res) => {
+  if (handleAPIRoute(req, res)) return;
+  serveStatic(req.url, res);
 });
 
-app.on('window-all-closed', () => {
-  if (game) game.stop();
-  app.quit();
+server.listen(PORT, () => {
+  log('K11 Boxing corriendo en http://localhost:%d', PORT);
+  log('Presiona C/M para moneda, SPACE para golpe, Q para salir');
+  keyboardLoop();
 });
 
-app.on('before-quit', () => {
-  if (game) game.stop();
+process.on('SIGINT', () => {
+  log('Apagando...');
+  game.stop();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  log('Apagando...');
+  game.stop();
+  process.exit(0);
 });
