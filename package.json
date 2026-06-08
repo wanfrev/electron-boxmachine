@@ -1,0 +1,44 @@
+{
+  "name": "k11-boxing",
+  "version": "2.0.0",
+  "private": true,
+  "description": "K11 Boxing Arcade Machine",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:electron\"",
+    "dev:ui": "npm --prefix ui run dev",
+    "dev:electron": "wait-on http://localhost:5173 && electron . --dev",
+    "build": "npm --prefix ui run build",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder",
+    "postinstall": "npm --prefix ui install"
+  },
+  "build": {
+    "appId": "com.k11.boxing",
+    "productName": "K11 Boxing",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "ui/dist/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": ["deb", "AppImage"],
+      "category": "Game"
+    },
+    "win32": {
+      "target": "nsis"
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
+    "wait-on": "^7.2.0"
+  },
+  "optionalDependencies": {
+    "onoff": "^6.0.0"
+  }
+}

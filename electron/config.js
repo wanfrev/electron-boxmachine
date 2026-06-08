@@ -1,0 +1,75 @@
+const path = require('path');
+
+const PIN_MONEDERO = 22;
+const PIN_SENSOR_ABAJO = 5;
+const PIN_SENSOR_ARRIBA = 6;
+
+const DEBOUNCE_COIN_MS = 500;
+const MAX_PUNCH_WINDOW_MS = 150;
+const MIN_PUNCH_DT_US = 2000;
+
+const SCORE_TABLE = [
+  [4.0, 980],
+  [6.0, 920],
+  [8.0, 850],
+  [10.0, 780],
+  [12.0, 700],
+  [14.0, 620],
+  [16.0, 550],
+  [18.0, 480],
+  [20.0, 420],
+  [25.0, 280],
+  [30.0, 180],
+  [35.0, 100],
+  [40.0, 60],
+  [45.0, 35],
+  [50.0, 20],
+  [80.0, 10],
+  [120.0, 0],
+];
+
+const DIFFICULTY_FACTOR = 1.2;
+const SCORE_NOISE = 8;
+const MAX_SCORE = 999;
+const SCORE_MIN = 0;
+
+const STATE_ATTRACT = 'attract';
+const STATE_WAITING = 'waiting';
+const STATE_COUNTDOWN = 'countdown';
+const STATE_READY = 'ready';
+const STATE_ANIMATING = 'animating';
+const STATE_RESULT = 'result';
+
+const COUNTDOWN_DURATION_MS = 3000;
+const ANIMATION_DURATION_MS = 1600;
+const RESULT_DISPLAY_MS = 4000;
+const READY_TIMEOUT_MS = 15000;
+
+const RECORDS_FILE = path.join(__dirname, '..', 'records.txt');
+const DEFAULT_RECORDS = [850, 720, 500];
+
+module.exports = {
+  PIN_MONEDERO,
+  PIN_SENSOR_ABAJO,
+  PIN_SENSOR_ARRIBA,
+  DEBOUNCE_COIN_MS,
+  MAX_PUNCH_WINDOW_MS,
+  MIN_PUNCH_DT_US,
+  SCORE_TABLE,
+  DIFFICULTY_FACTOR,
+  SCORE_NOISE,
+  MAX_SCORE,
+  SCORE_MIN,
+  STATE_ATTRACT,
+  STATE_WAITING,
+  STATE_COUNTDOWN,
+  STATE_READY,
+  STATE_ANIMATING,
+  STATE_RESULT,
+  COUNTDOWN_DURATION_MS,
+  ANIMATION_DURATION_MS,
+  RESULT_DISPLAY_MS,
+  READY_TIMEOUT_MS,
+  RECORDS_FILE,
+  DEFAULT_RECORDS,
+};
