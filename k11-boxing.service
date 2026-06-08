@@ -1,0 +1,15 @@
+[Unit]
+Description=K11 Boxing Arcade Machine
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/maquina_nueva
+ExecStartPre=/usr/bin/npm run build
+ExecStart=/usr/bin/node /home/pi/maquina_nueva/electron/main.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
