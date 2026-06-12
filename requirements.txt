@@ -1,3 +1,0 @@
-# Dependencies
-eel>=0.17.0
-gpiozero>=2.0

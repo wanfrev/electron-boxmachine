@@ -3,13 +3,12 @@
   "version": "2.0.0",
   "private": true,
   "description": "K11 Boxing Arcade Machine",
-  "main": "electron/main.js",
+  "main": "server.js",
   "scripts": {
     "build": "npm --prefix ui run build",
-    "start": "npm run build && node electron/main.js",
+    "start": "npm run build && node server.js",
     "dev": "npm --prefix ui run dev",
-    "dev:server": "node electron/main.js",
-    "postinstall": "npm --prefix ui install"
+    "dev:server": "node server.js"
   },
   "optionalDependencies": {
     "onoff": "^6.0.0"

@@ -8,11 +8,12 @@ const {
   STATE_ANIMATING, STATE_RESULT,
   COUNTDOWN_DURATION_MS, ANIMATION_DURATION_MS, RESULT_DISPLAY_MS,
   READY_TIMEOUT_MS, RECORDS_FILE, DEFAULT_RECORDS,
-} = require('./config');
-const { calcularPuntaje } = require('./scoring');
+} = require('./server/config');
+const { calcularPuntaje } = require('./server/scoring');
+const { applyUpdate } = require('./server/updater');
 
 const PORT = 8000;
-const DIST_DIR = path.join(__dirname, '..', 'ui', 'dist');
+const DIST_DIR = path.join(__dirname, 'ui', 'dist');
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -469,6 +470,39 @@ function handleAPIRoute(req, res) {
     return true;
   }
 
+  if (pathname === '/api/info' && req.method === 'GET') {
+    const info = {
+      name: 'k11-boxing',
+      version: require('./package.json').version,
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      pid: process.pid,
+      uptime: process.uptime(),
+      hardwareConectado: game.hardware ? game.hardware.hardwareConectado : false,
+    };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(info));
+    return true;
+  }
+
+  if (pathname === '/api/update' && req.method === 'POST') {
+    parseBody(req).then(body => {
+      const updateUrl = body.url;
+      if (!updateUrl) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Falta el parametro url' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'updating', message: 'Aplicando actualizacion...' }));
+      applyUpdate(updateUrl).catch(err => {
+        log('Error en OTA update: %s', err.message);
+      });
+    });
+    return true;
+  }
+
   return false;
 }
 
@@ -497,7 +531,7 @@ const server = http.createServer((req, res) => {
   serveStatic(req.url, res);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   log('K11 Boxing corriendo en http://localhost:%d', PORT);
   log('Presiona C/M para moneda, SPACE para golpe, Q para salir');
   keyboardLoop();

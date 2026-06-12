@@ -1,8 +1,6 @@
 node_modules/
-.venv/
-__pycache__/
-*.pyc
 ui/node_modules/
-release/
 records.txt
 *.log
+.update-tmp/
+.write-test
