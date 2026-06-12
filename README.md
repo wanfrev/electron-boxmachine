@@ -177,3 +177,4 @@ Detectan el tiempo de recorrido del puñal entre reposo e impacto y lo convierte
 
 Este es un proyecto comercial privado. No incluye garantía ni soporte.
 # svelte-k11boxmachine
+# svelte-k11boxmachine
