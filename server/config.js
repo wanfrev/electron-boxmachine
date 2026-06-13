@@ -3,35 +3,18 @@ const path = require('path');
 const PIN_MONEDERO = 22;
 const PIN_SENSOR_ABAJO = 5;
 const PIN_SENSOR_ARRIBA = 6;
+const PIN_ENERGIA = 17;
 
 const DEBOUNCE_COIN_MS = 500;
 const MAX_PUNCH_WINDOW_MS = 150;
 const MIN_PUNCH_DT_US = 2000;
 
-const SCORE_TABLE = [
-  [4.0, 980],
-  [6.0, 920],
-  [8.0, 850],
-  [10.0, 780],
-  [12.0, 700],
-  [14.0, 620],
-  [16.0, 550],
-  [18.0, 480],
-  [20.0, 420],
-  [25.0, 280],
-  [30.0, 180],
-  [35.0, 100],
-  [40.0, 60],
-  [45.0, 35],
-  [50.0, 20],
-  [80.0, 10],
-  [120.0, 0],
-];
-
-const DIFFICULTY_FACTOR = 1.2;
-const SCORE_NOISE = 8;
+const DIFFICULTY_FACTOR = 1.0;
+const SCORE_NOISE = 5;
 const MAX_SCORE = 999;
 const SCORE_MIN = 0;
+const SCORE_HALF_TIME_MS = 12;
+const SCORE_STEEPNESS = 2.5;
 
 const STATE_ATTRACT = 'attract';
 const STATE_WAITING = 'waiting';
@@ -48,18 +31,30 @@ const READY_TIMEOUT_MS = 15000;
 const RECORDS_FILE = path.join(__dirname, '..', 'records.txt');
 const DEFAULT_RECORDS = [850, 720, 500];
 
+const IOT_BACKEND_URL = 'http://72.61.74.156:3000/api/iot/data';
+const MACHINE_ID = 'Maquina_Boxeo_K11';
+const IOT_PING_INTERVAL_MS = 20000;
+const IOT_RETRY_INTERVAL_MS = 5000;
+const IOT_OFFLINE_FILE = path.join(__dirname, '..', 'iot_queue.txt');
+const WDT_ENABLED = true;
+const WDT_FEED_INTERVAL_MS = 8000;
+const WDT_DEVICE = '/dev/watchdog';
+const POWER_SENSOR_DEBOUNCE_MS = 300;
+
 module.exports = {
   PIN_MONEDERO,
   PIN_SENSOR_ABAJO,
   PIN_SENSOR_ARRIBA,
+  PIN_ENERGIA,
   DEBOUNCE_COIN_MS,
   MAX_PUNCH_WINDOW_MS,
   MIN_PUNCH_DT_US,
-  SCORE_TABLE,
   DIFFICULTY_FACTOR,
   SCORE_NOISE,
   MAX_SCORE,
   SCORE_MIN,
+  SCORE_HALF_TIME_MS,
+  SCORE_STEEPNESS,
   STATE_ATTRACT,
   STATE_WAITING,
   STATE_COUNTDOWN,
@@ -72,4 +67,13 @@ module.exports = {
   READY_TIMEOUT_MS,
   RECORDS_FILE,
   DEFAULT_RECORDS,
+  IOT_BACKEND_URL,
+  MACHINE_ID,
+  IOT_PING_INTERVAL_MS,
+  IOT_RETRY_INTERVAL_MS,
+  IOT_OFFLINE_FILE,
+  WDT_ENABLED,
+  WDT_FEED_INTERVAL_MS,
+  WDT_DEVICE,
+  POWER_SENSOR_DEBOUNCE_MS,
 };

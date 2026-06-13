@@ -19,7 +19,7 @@
   let countdownTimer = null;
   let backendConnected = false;
   let barProgress = 0;
-  let barAnimFrame = null;
+  let barKey = 0;
 
   let transActive = false;
   let transType = '';
@@ -41,23 +41,8 @@
     return 'DÉBIL';
   }
 
-  function startBarFill() {
-    barProgress = 0;
-    if (barAnimFrame) cancelAnimationFrame(barAnimFrame);
-    function step() {
-      barProgress = Math.min(1, barProgress + 0.02);
-      if (barProgress < 1) {
-        barAnimFrame = requestAnimationFrame(step);
-      }
-    }
-    barAnimFrame = requestAnimationFrame(step);
-  }
-
-  function stopBarFill() {
-    if (barAnimFrame) { cancelAnimationFrame(barAnimFrame); barAnimFrame = null; }
-  }
-
-  function resetBarFill() {
+  function restartBar() {
+    barKey += 1;
     barProgress = 0;
   }
 
@@ -68,18 +53,17 @@
     showReady = false;
     showResult = false;
     countdownNum = 3;
-    startBarFill();
+    restartBar();
 
     if (countdownTimer) clearInterval(countdownTimer);
     countdownTimer = setInterval(() => {
       countdownNum -= 1;
-      resetBarFill();
-      startBarFill();
       if (countdownNum <= 0) {
         clearInterval(countdownTimer);
         countdownTimer = null;
         barProgress = 1;
-        stopBarFill();
+      } else {
+        restartBar();
       }
     }, 1000);
   }
@@ -260,14 +244,20 @@
 
   <!-- Hydraulic pressure bars (left & right) -->
   <div class="side-bar left" class:active={showLeaderboard || showCountdown || showReady || showScore}>
-    <div class="bar-fill" class:chase={showLeaderboard} class:pulse={showReady}
-         style="height: {showLeaderboard ? 100 : showScore ? scoreRatio * 100 : barProgress * 100}%">
-    </div>
+    {#key barKey}
+      <div class="bar-fill" class:chase={showLeaderboard} class:pulse={showReady}
+           class:countdown-fill={showCountdown}
+           style="height: {showLeaderboard ? 100 : showScore ? scoreRatio * 100 : showCountdown ? 0 : barProgress * 100}%">
+      </div>
+    {/key}
   </div>
   <div class="side-bar right" class:active={showLeaderboard || showCountdown || showReady || showScore}>
-    <div class="bar-fill" class:chase={showLeaderboard} class:pulse={showReady}
-         style="height: {showLeaderboard ? 100 : showScore ? scoreRatio * 100 : barProgress * 100}%">
-    </div>
+    {#key barKey}
+      <div class="bar-fill" class:chase={showLeaderboard} class:pulse={showReady}
+           class:countdown-fill={showCountdown}
+           style="height: {showLeaderboard ? 100 : showScore ? scoreRatio * 100 : showCountdown ? 0 : barProgress * 100}%">
+      </div>
+    {/key}
   </div>
 
   <div class="overlay" class:hidden>
@@ -470,6 +460,15 @@
 
   .bar-fill.pulse {
     animation: bar-pulse 0.4s ease-in-out infinite alternate;
+  }
+
+  .bar-fill.countdown-fill {
+    animation: bar-fill-up 1s linear forwards;
+  }
+
+  @keyframes bar-fill-up {
+    0% { height: 0%; }
+    100% { height: 100%; }
   }
 
   .bar-fill.chase {

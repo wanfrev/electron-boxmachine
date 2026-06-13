@@ -1,3 +1,12 @@
+La fórmula ahora es:
+score = 999 / (1 + (dt_ms / 12)^2.5)
+Es continua, físicamente correcta y solo usa 2 parámetros que puedes calibrar en server/config.js:16-17:
+SCORE_HALF_TIME_MS = 12 → tiempo en ms donde el puntaje es exactamente 500 (la mitad del máximo). Súbelo si los golpes salen muy bajos, bájalo si salen muy altos
+SCORE_STEEPNESS = 2.5 → qué tan agresiva es la curva. Más alto = castiga más los golpes lentos, premia más los rápidos. Más bajo = curva más plana, más tolerante
+La tabla vieja daba: 4ms→980, 10ms→780, 20ms→420, 40ms→60, 120ms→0
+La fórmula nueva da: 4ms→937, 10ms→607, 14ms→500, 20ms→217, 40ms→53, 120ms→3
+Nunca llega exactamente a 0 (es físicamente correcto, todo golpe tiene algo de potencia), pero a 120ms da 3 puntos, prácticamente nulo.
+
 # K11 Boxing - Máquina Arcade de Boxeo
 
 Arquitectura **Node.js nativo + Chromium Kiosk** sobre **FullPageOS** para Raspberry Pi 3 B+.
